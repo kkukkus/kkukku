@@ -1,0 +1,209 @@
+<html>
+<head>
+	<meta charset="UTF-8">
+    <title>링크 생성기</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style type="text/css">
+      * {
+        box-sizing: border-box;
+        color: white;
+        vertical-align: middle;
+      }
+
+      body {
+        padding: 0px;
+        margin: 0px;
+        overflow: hidden;
+        background:rgba(0, 0, 0, 1);
+      }
+
+      a {
+        color: white;
+        text-decoration: none;
+      }
+
+      a[checked] {
+        color: darkgray;
+      }
+
+      textarea {
+        height: 100%;
+        padding: 10px;
+        resize: none;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: #dddddd;
+        box-shadow: 0 0 10px #dddddd;
+      }
+
+      .bottom {
+        height: 100%;
+        position: relative;
+        padding-top: 40px;
+        top: -40px;
+        margin: 0px 0px 10px 0px;
+      }
+
+      .editor {
+        width: 100%;
+        background:rgba(50, 50, 50, 1);
+        color: white;
+        border: 1px solid #dddddd;
+        font-size: 16px;
+        border-bottom-right-radius: 10px;
+        border-bottom-left-radius: 10px;
+      }
+
+      .base {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        position:absolute;
+        top: 0px;
+        left: 0px;
+        display: inline-grid;
+        justify-items: center;
+      }
+
+      .frame {
+        width: 100%;
+        height: 100%;
+        padding: 10px;
+      }
+
+      .btnbase {
+        display: flex;
+      }
+
+      .btn {
+        height: 30px;
+        border: 1px solid #dddddd;
+        background:rgba(50, 50, 50, 1);
+        color: white;
+        text-align: center;
+        align-content: center;
+        position: relative;
+        display: grid;
+        margin-bottom: 10px;
+        z-index: 1;
+      }
+
+      .btn[left] {
+        width: 80%;
+        border-top-left-radius: 10px;
+        margin-right: 5px;
+      }
+      .btn[right] {
+        width: 20%;
+        border-top-right-radius: 10px;
+        margin-left: 5px;
+      }
+      .btn[all] {
+        width: 100%;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+      }
+
+      .btn:hover {
+        cursor: hand;
+      }
+
+      #output {
+        width: 100%;
+        height: 100%;
+        color: white;
+      }
+
+      #result {
+        background:rgba(50, 50, 50, 1);
+        padding: 10px;
+        display: inline-grid;
+        justify-items: center;
+      }
+
+      .link {
+        height: 10px;
+        margin: 10px 0px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="base" id="output" style="visibility: hidden;"><div class="frame">
+      <div class="btn" id="close" all="">닫기</div>
+      <div class="bottom">
+        <div class="editor" id="result"></div>
+      </div>
+    </div></div>
+    <div class="base" id="input"><div class="frame">
+      <div class="btnbase">
+        <div class="btn" id="make" left="">링크 생성</div>
+        <div class="btn" id="automake" right="">자동 생성</div>
+      </div>
+      <div class="bottom">
+        <textarea class="editor" id="links" placeholder="link list"></textarea>
+      </div>
+    </div></div>
+    <script>
+      let ToggleBase = function(openBase) {
+        for (let base of ['input', 'output']) {
+          let dom = document.getElementById(base);
+          dom.style.visibility = (openBase == base ? '' : 'hidden');
+        }
+      };
+
+      let AddDom = function() {
+        let dom = document.getElementById('result');
+        dom.innerHTML = '';
+        return dom;
+      };
+
+      let SetResult = function (dom, link) {
+        // target="_blank"
+        dom.innerHTML += `<a href="${link}" class="link" onclick="ClickLink(this)">${link}</a>`;
+      };
+
+      let MakeLink = function() {
+        let links = document.getElementById("links").value;
+        let resultDom = AddDom();
+        for (let link of links.split('\n')) {
+          if ('' === link) continue;
+          SetResult(resultDom, link);
+        }
+        ToggleBase('output');
+      }
+
+      let AutoMakeLink = function() {
+        let index = Number(document.getElementById("links").value, 10);
+        let resultDom = AddDom();
+        for (let end = index + 30; index < end; ++index) {
+          SetResult(resultDom, `naverbooks://event/cookie?eventNo=${index}`);
+        }
+        ToggleBase('output');
+      }
+
+      let ClickLink = function(obj) {
+        obj.setAttribute('checked', '');
+      }
+
+      window.addEventListener('load', () => {
+        ToggleBase('input');
+        let makeBtn = document.getElementById('make');
+        makeBtn.addEventListener('click', () => {
+          MakeLink();
+        });
+
+        let autoBtn = document.getElementById('automake');
+        autoBtn.addEventListener('click', () => {
+          AutoMakeLink();
+        });
+
+        let closeBtn = document.getElementById('close');
+        closeBtn.addEventListener('click', () => {
+          ToggleBase('input');
+        });
+      });
+    </script>
+</body>
+</html>
