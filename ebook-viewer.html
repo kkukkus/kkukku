@@ -30,6 +30,9 @@
       border: 1px solid #ccc; 
       overflow: auto; 
       position: relative;
+      padding-left: 35px !important; 
+      padding-right: 35px !important; 
+      box-sizing: border-box !important;
     }
     
     canvas { 
@@ -45,10 +48,10 @@
       top: 50%; 
       transform: translateY(-50%);
       z-index: 10; 
-      background: rgba(0, 0, 0, 0.1); 
+      background: rgba(0, 0, 0, 0.05); 
       color: white;
       border: none; 
-      padding: 2rem 1rem; 
+      padding: 1rem 1rem; 
       font-size: 2rem; 
       cursor: pointer;
       border-radius: 8px;
@@ -60,7 +63,7 @@
     }
     
     .nav-button:hover, .nav-button:active { 
-      background: rgba(0, 0, 0, 0.2); 
+      background: rgba(0, 0, 0, 0.1); 
       color: white; 
     }
     
@@ -184,7 +187,7 @@
       .nav-button {
         padding: 1.5rem 0.8rem;
         font-size: 1.8rem;
-        min-width: 50px;
+        min-width: 30px;
         min-height: 40px;
       }
       
