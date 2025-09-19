@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>모바일 이북뷰어</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://unpkg.com/epubjs@0.3.93/dist/epub.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    body { 
+      margin: 0.5rem; 
+      padding: 0;
+      font-size: 12px;
+    }
+    
+    #viewerContainer { 
+      position: relative; 
+      margin-top: 0.25rem; 
+      height: 75vh; 
+    }
+    
+    #viewer {
+      display: flex; 
+      flex-wrap: wrap; 
+      justify-content: center;
+      align-items: center; 
+      width: 100%; 
+      height: 100%;
+      border: 1px solid #ccc; 
+      overflow: auto; 
+      position: relative;
+    }
+    
+    canvas { 
+      border: 1px solid #aaa; 
+      background: white; 
+      object-fit: contain; 
+      max-width: 100%;
+      max-height: 100%;
+    }
+    
+    .nav-button {
+      position: absolute; 
+      top: 50%; 
+      transform: translateY(-50%);
+      z-index: 10; 
+      background: rgba(0, 0, 0, 0.3); 
+      color: white;
+      border: none; 
+      padding: 2rem 1rem; 
+      font-size: 2rem; 
+      cursor: pointer;
+      border-radius: 8px;
+      min-width: 60px;
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .nav-button:hover, .nav-button:active { 
+      background: rgba(0, 0, 0, 0.6); 
+      color: white; 
+    }
+    
+    #prevBtn { left: 10px; }
+    #nextBtn { right: 10px; }
+    
+    #controls { 
+      display: flex; 
+      gap: 0.25rem; 
+      flex-wrap: wrap; 
+      margin-top: 0.25rem; 
+      align-items: center; 
+      font-size: 10px;
+    }
+    
+    #titles { 
+      display: flex; 
+      gap: 0.5rem; 
+      padding-top: 5px;
+      flex-wrap: wrap; 
+      align-items: center; 
+    }
+    
+    #titles h5 {
+      margin: 0;
+      font-size: 15px;
+    }
+    
+    select, input[type="search"], input[type="number"], button {
+      padding: 8px 12px; 
+      border-radius: 6px; 
+      border: 1px solid #ccc; 
+      min-height: 30px; 
+      box-sizing: border-box;
+      font-size: 10px;
+      touch-action: manipulation;
+    }
+    
+    button {
+      background: #f8f9fa;
+      cursor: pointer;
+      min-width: 30px;
+    }
+    
+    button:hover, button:active {
+      background: #e9ecef;
+    }
+    
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { 
+      height: 20px; 
+      width: 20px; 
+    }
+    
+    #progressBar { 
+      width: 100%; 
+      height: 8px; 
+      background: #eee; 
+      margin-top: 0.5rem;
+      border-radius: 8px; 
+      cursor: pointer; 
+      position: relative; 
+    }
+    
+    #progressFill { 
+      height: 100%; 
+      background: #3b82f6; 
+      border-radius: 8px 0 0 8px; 
+      width: 0%; 
+    }
+    
+    #searchResults { 
+      max-height: 100px; 
+      overflow: auto; 
+      border: 1px solid #3b82f6; 
+      margin-top: 0.5rem;
+      padding: 0.5rem; 
+      font-size: 12px; 
+      background: #f0f8ff; 
+    }
+    
+    #searchResults div { 
+      cursor: pointer; 
+      padding: 0.5rem; 
+      border-bottom: 1px solid #ccc; 
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+    }
+    
+    #searchResults div:hover { 
+      background: #dbe9ff; 
+    }
+    
+    #fileInput {
+      padding: 8px 8px;
+      font-size: 14px;
+      min-height: 30px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      cursor: pointer;
+      background: #f8f9fa;
+    }
+    
+    #fileInput:hover {
+      background: #e9ecef;
+    }
+    
+    /* 모바일 최적화 */
+    @media (max-width: 768px) {
+      body {
+        margin: 0.25rem;
+        font-size: 16px;
+      }
+      
+      #viewerContainer {
+        height: 70vh;
+      }
+      
+      .nav-button {
+        padding: 1.5rem 0.8rem;
+        font-size: 1.8rem;
+        min-width: 50px;
+        min-height: 40px;
+      }
+      
+      #prevBtn { left: 5px; }
+      #nextBtn { right: 5px; }
+      
+      select, input, button {
+        padding: 8px;
+        min-height: 30px;
+        font-size: 14px;
+      }
+      
+      #fileInput {
+        padding: 8px;
+        min-height: 30px;
+        font-size: 14px;
+      }
+      
+      #controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+      }
+      
+      #controls > * {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="titles">
+    <h5>📖 모바일 이북뷰어</h5>
+    <input type="file" id="fileInput" accept=".epub,.pdf" />
+  </div>
+  
+  <div id="controls">
+    <div style="display: flex; gap: 0.25rem; width: 100%;">
+      <select id="tocSelect" hidden style="flex: 1;"><option value="">📚 목차</option></select>
+      <button id="lastPageBtn" title="마지막 페이지로 이동" style="flex: 1;">⏭ 맨뒤로</button>
+    </div>
+    <input type="search" id="searchInput" placeholder="검색어 입력" />
+  </div>
+  
+  <div id="searchResults"></div>
+  
+  <div id="viewerContainer">
+    <button id="prevBtn" class="nav-button">◀</button>
+    <button id="nextBtn" class="nav-button">▶</button>
+    <div id="viewer"></div>
+    <div id="progressBar"><div id="progressFill"></div></div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const viewer = document.getElementById("viewer");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const tocSelect = document.getElementById("tocSelect");
+    const searchInput = document.getElementById("searchInput");
+    const progressBar = document.getElementById("progressBar");
+    const progressFill = document.getElementById("progressFill");
+    const searchResults = document.getElementById("searchResults");
+    const lastPageBtn = document.getElementById("lastPageBtn");
+
+    let isLocationReady = false;
+    let book = null, rendition = null, keydownHandler = null, pdfDoc = null;
+    let currentPage = 1, viewMode = 1, currentFile = "", lastEPUBLocation = "";
+    let currentHighlightIds = [];
+
+    progressBar.style.pointerEvents = "none";
+    progressBar.style.opacity = "0";
+
+    // Downloads 폴더 지정을 위한 파일 입력 처리
+    fileInput.addEventListener("click", () => {
+      // 모바일에서는 Downloads 폴더를 직접 지정할 수 없지만,
+      // 파일 선택 시 기본적으로 Downloads 폴더가 열리도록 브라우저가 처리합니다.
+    });
+
+    // EPUB 전체 텍스트 검색
+    async function searchInEpub(book, query) {
+      const results = [];
+      const spineItems = book.spine.spineItems;
+      const lowerQuery = query.toLowerCase();
+      for (let i = 0; i < spineItems.length; i++) {
+        const item = spineItems[i];
+        try {
+          await item.load(book.load.bind(book));
+          const doc = item.document;
+          const body = doc.body;
+          const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT, null, false);
+          while (walker.nextNode()) {
+            const node = walker.currentNode;
+            const lowerText = node.textContent.toLowerCase();
+            let index = lowerText.indexOf(lowerQuery);
+            while (index !== -1) {
+              const range = doc.createRange();
+              range.setStart(node, index);
+              range.setEnd(node, index + query.length);
+              const cfi = item.cfiFromRange(range);
+              const previewStart = Math.max(0, index - 20);
+              const previewEnd = Math.min(node.textContent.length, index + query.length + 20);
+              const preview = node.textContent.substring(previewStart, previewEnd).replace(/\s+/g, " ").trim();
+              results.push({ cfi, preview });
+              index = lowerText.indexOf(lowerQuery, index + query.length);
+            }
+          }
+        } catch (err) {
+          console.warn(`검색 spine 항목 처리 실패:`, err);
+        } finally { try { item.unload(); } catch {} }
+      }
+      return results;
+    }
+
+    function clearViewer() {
+      if (rendition) { try { rendition.destroy(); } catch {} rendition = null; }
+      if (book) { try { if (book.destroy) book.destroy(); } catch {} book = null; }
+      if (keydownHandler) { document.removeEventListener("keydown", keydownHandler); keydownHandler = null; }
+      pdfDoc = null;
+      viewer.innerHTML = "";
+      tocSelect.innerHTML = `<option value=\"\">📚 목차</option>`;
+      tocSelect.style.display = "none";
+      currentPage = 1;
+      lastEPUBLocation = "";
+      progressFill.style.width = "0%";
+      searchResults.innerHTML = "";
+      clearHighlights();
+    }
+
+    async function renderPDFPages(pageNum) {
+      viewer.innerHTML = "";
+      // 모바일에서는 항상 1면 보기
+      const canvas = document.createElement("canvas");
+      viewer.appendChild(canvas);
+      const page = await pdfDoc.getPage(pageNum);
+      const scale = Math.min(viewer.clientWidth / page.view[2], viewer.clientHeight / page.view[3]);
+      const viewport = page.getViewport({ scale });
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      const ctx = canvas.getContext("2d");
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      progressFill.style.width = `${(pageNum / pdfDoc.numPages) * 100}%`;
+    }
+
+    async function gotoLastPageEPUBAbsolute() {
+      try {
+        const spineItems = book?.spine?.spineItems || [];
+        if (!spineItems.length || !rendition) return;
+        const lastItem = spineItems[spineItems.length - 1];
+        await rendition.display(lastItem.href || lastItem);
+
+        let guard = 500;
+        while (guard-- > 0) {
+          const loc = rendition.currentLocation?.() || null;
+          const before = JSON.stringify(loc);
+          const moved = await rendition.next().then(() => true).catch(() => false);
+          const after = JSON.stringify(rendition.currentLocation?.() || null);
+          if (!moved || before === after) break;
+        }
+      } catch (e) {
+        console.warn("EPUB 마지막(판권 포함) 이동 실패:", e);
+      }
+    }
+
+    async function gotoLastPage() {
+      if (book && rendition) {
+        await gotoLastPageEPUBAbsolute();
+      } else if (pdfDoc) {
+        currentPage = pdfDoc.numPages;
+        renderPDFPages(currentPage);
+      }
+    }
+
+    lastPageBtn.addEventListener("click", gotoLastPage);
+
+    fileInput.addEventListener("change", () => {
+      clearViewer();
+      const file = fileInput.files[0];
+      if (!file) return;
+      currentFile = file.name;
+
+      const ext = file.name.split(".").pop().toLowerCase();
+      const reader = new FileReader();
+
+      reader.onload = async (e) => {
+        const buffer = e.target.result;
+        if (ext === "epub") {
+          book = ePub(buffer);
+          // 모바일에서는 항상 1면 보기, 스크롤 모드 없음
+          rendition = book.renderTo("viewer", {
+            width: "100%", height: "100%", 
+            flow: "paginated",
+            spread: "none"  // 항상 1면 보기
+          });
+
+          book.ready.then(() => {
+            book.locations.generate(1600).then(() => {
+              isLocationReady = true;
+              progressBar.style.pointerEvents = "auto";
+              progressBar.style.opacity = "1";
+              console.log("[EPUB] 진행바 사용 가능");
+            });
+          });
+
+          function applyThemeToView(view) {
+            if (!view || !view.document) return;
+            const styleId = 'custom-viewer-style';
+            let styleElement = view.document.getElementById(styleId);
+            if (!styleElement) {
+              styleElement = view.document.createElement('style');
+              styleElement.id = styleId;
+              view.document.head.appendChild(styleElement);
+            }
+            const cssRules = `
+              * {  }
+              body { }
+              p, div, section { }
+            `;
+            styleElement.textContent = cssRules;
+          }
+          function applyThemeToAllViews() { if (!rendition) return; rendition.views().forEach(applyThemeToView); }
+
+          function addIframeKeyHandler() {
+            setTimeout(() => {
+              const iframe = viewer.querySelector("iframe");
+              if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.addEventListener("keydown", keydownHandler, false);
+                iframe.contentWindow.focus();
+              }
+            }, 300);
+          }
+
+          rendition.display();
+
+          async function restoreHighlights() {
+            const key = "highlightList:" + currentFile;
+            const list = JSON.parse(localStorage.getItem(key) || "[]");
+            clearHighlights();
+            for (const { cfi } of list) {
+              try {
+                const result = rendition.annotations.highlight(
+                  cfi, {}, () => {}, "highlight",
+                  { fill: "#ffff00", "fill-opacity": "0.4" }
+                );
+                if (result?.cfiRange) currentHighlightIds.push(result.cfiRange);
+              } catch (e) { console.warn("CFI 기반 하이라이트 복원 실패:", e); }
+            }
+          }
+
+          rendition.on("rendered", (section, view) => { applyThemeToView(view); restoreHighlights(); });
+          rendition.on("relocated", loc => {
+            lastEPUBLocation = loc.start.cfi;
+            const percent = book.locations.percentageFromCfi(loc.start.cfi) * 100;
+            progressFill.style.width = percent.toFixed(1) + "%";
+            addIframeKeyHandler();
+          });
+
+          book.loaded.navigation.then(nav => {
+            tocSelect.innerHTML = `<option value="">📚 목차</option>`;
+            nav.toc.forEach(item => {
+              const option = document.createElement("option");
+              option.textContent = item.label;
+              option.value = item.href;
+              tocSelect.appendChild(option);
+            });
+            tocSelect.hidden = false;
+            tocSelect.style.display = "inline-block";
+            tocSelect.onchange = () => rendition.display(tocSelect.value);
+          });
+
+          prevBtn.onclick = () => rendition.prev();
+          nextBtn.onclick = () => rendition.next();
+
+          keydownHandler = e => {
+            if (e.key === "ArrowRight") rendition.next();
+            if (e.key === "ArrowLeft") rendition.prev();
+            if (e.key === "End" || e.key === "PageDown") gotoLastPage();
+          };
+          document.addEventListener("keydown", keydownHandler);
+
+        } else if (ext === "pdf") {
+          pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise;
+          currentPage = 1;
+          await renderPDFPages(currentPage);
+
+          // PDF도 모바일에서는 항상 1페이지씩
+          prevBtn.onclick = () => { currentPage = Math.max(1, currentPage - 1); renderPDFPages(currentPage); };
+          nextBtn.onclick = () => { currentPage = Math.min(pdfDoc.numPages, currentPage + 1); renderPDFPages(currentPage); };
+
+          keydownHandler = e => {
+            if (e.key === "ArrowRight") nextBtn.click();
+            if (e.key === "ArrowLeft") prevBtn.click();
+            if (e.key === "End" || e.key === "PageDown") gotoLastPage();
+          };
+          document.addEventListener("keydown", keydownHandler);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    // 검색
+    searchInput.addEventListener("change", async () => {
+      const query = searchInput.value.trim();
+      searchResults.innerHTML = "";
+      clearHighlights();
+      if (!book || !query) return;
+      try {
+        const results = await searchInEpub(book, query);
+        if (!results || results.length === 0) { searchResults.textContent = "검색 결과가 없습니다."; return; }
+        results.forEach(({ cfi, preview }) => {
+          const div = document.createElement("div");
+          div.textContent = preview;
+          div.onclick = () => { rendition.display(cfi).then(() => { clearHighlights(); addHighlight(cfi); }); };
+          searchResults.appendChild(div);
+        });
+      } catch (err) {
+        console.error("검색 처리 중 오류 발생:", err);
+        searchResults.textContent = "검색 중 오류가 발생했습니다.";
+      }
+    });
+
+    function addHighlight(cfi) {
+      try {
+        const mark = rendition.annotations.highlight(
+          cfi, {}, () => {}, "highlight",
+          { fill: "yellow", "fill-opacity": "0.5" }
+        );
+        if (mark && mark.cfiRange) currentHighlightIds.push(mark.cfiRange);
+      } catch (e) {}
+    }
+
+    function clearHighlights() {
+      if (!rendition || !rendition.annotations) return;
+      try { currentHighlightIds.forEach(cfi => rendition.annotations.remove(cfi, "highlight")); } catch (e) {}
+      currentHighlightIds = [];
+      try {
+        const iframeDoc = viewer.querySelector("iframe")?.contentDocument;
+        if (iframeDoc) { iframeDoc.querySelectorAll("highlight").forEach(el => el.remove()); }
+      } catch (e) {}
+    }
+
+    // 진행바 클릭
+    progressBar.addEventListener("click", async e => {
+      const rect = progressBar.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percent = Math.max(0, Math.min(1, x / rect.width));
+
+      if (book && rendition && isLocationReady) {
+        const cfi = book.locations.cfiFromPercentage(percent);
+        try { await rendition.display(cfi); }
+        catch { alert("페이지 이동에 실패했습니다."); }
+      } else if (pdfDoc) {
+        const page = Math.max(1, Math.round(percent * pdfDoc.numPages));
+        currentPage = page;
+        renderPDFPages(currentPage);
+      }
+    });
+
+    window.addEventListener("beforeunload", () => {
+      if (rendition) try { rendition.destroy(); } catch {}
+      if (keydownHandler) document.removeEventListener("keydown", keydownHandler);
+    });
+
+    // 터치 제스처 추가 (스와이프로 페이지 넘기기)
+    let touchStartX = 0;
+    let touchStartY = 0;
+    
+    viewer.addEventListener('touchstart', e => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    });
+    
+    viewer.addEventListener('touchend', e => {
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+      
+      // 가로 스와이프가 세로 스와이프보다 클 때만 페이지 넘기기
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+        if (deltaX > 0) {
+          // 오른쪽 스와이프 - 이전 페이지
+          prevBtn.click();
+        } else {
+          // 왼쪽 스와이프 - 다음 페이지
+          nextBtn.click();
+        }
+      }
+    });
+  </script>
+</body>
+</html>
