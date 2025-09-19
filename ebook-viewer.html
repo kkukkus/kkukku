@@ -443,12 +443,23 @@
 
           book.loaded.navigation.then(nav => {
             tocSelect.innerHTML = `<option value="">📚 목차</option>`;
-            nav.toc.forEach(item => {
-              const option = document.createElement("option");
-              option.textContent = item.label;
-              option.value = item.href;
-              tocSelect.appendChild(option);
-            });
+            
+            function addTocItems(items, level = 0) {
+              items.forEach(item => {
+                const option = document.createElement("option");
+                const indent = "　".repeat(level); // 전각 공백으로 들여쓰기
+                option.textContent = indent + item.label;
+                option.value = item.href;
+                tocSelect.appendChild(option);
+                
+                // 하위 목차가 있으면 재귀적으로 추가
+                if (item.subitems && item.subitems.length > 0) {
+                  addTocItems(item.subitems, level + 1);
+                }
+              });
+            }
+            
+            addTocItems(nav.toc);
             tocSelect.hidden = false;
             tocSelect.style.display = "inline-block";
             tocSelect.onchange = () => rendition.display(tocSelect.value);
