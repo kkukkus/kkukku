@@ -261,6 +261,62 @@
     progressBar.style.pointerEvents = "none";
     progressBar.style.opacity = "0";
 
+    // 자기닫기 태그 문제 해결을 위한 HTML 정규화 함수
+    function normalizeHtml(htmlString) {
+      // 자기닫기 태그들을 정상적인 열기/닫기 태그로 변환
+      const selfClosingTags = [
+        'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+        'link', 'meta', 'param', 'source', 'track', 'wbr', 'title'
+      ];
+      
+      let normalized = htmlString;
+      
+      selfClosingTags.forEach(tag => {
+        // <tag/> 형태를 <tag></tag>로 변환
+        const selfClosingRegex = new RegExp(`<${tag}([^>]*?)\\s*\\/>`, 'gi');
+        normalized = normalized.replace(selfClosingRegex, (match, attrs) => {
+          // void 요소들은 닫기 태그가 없어야 함
+          const voidElements = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
+          if (voidElements.includes(tag.toLowerCase())) {
+            return `<${tag}${attrs}>`;
+          } else {
+            return `<${tag}${attrs}></${tag}>`;
+          }
+        });
+        
+        // <tag 속성/> 형태도 처리
+        const selfClosingWithSpaceRegex = new RegExp(`<${tag}([^>]*?)\\s+\\/>`, 'gi');
+        normalized = normalized.replace(selfClosingWithSpaceRegex, (match, attrs) => {
+          const voidElements = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
+          if (voidElements.includes(tag.toLowerCase())) {
+            return `<${tag}${attrs}>`;
+          } else {
+            return `<${tag}${attrs}></${tag}>`;
+          }
+        });
+      });
+      
+      return normalized;
+    }
+
+    // EPUB.js의 파싱을 개선하기 위한 커스텀 후킹
+    function patchEpubJsForSelfClosingTags() {
+      // EPUB.js가 내부적으로 사용하는 XML 파서를 더 관대하게 만들기
+      if (window.ePub && window.ePub.Parser) {
+        const originalParse = window.ePub.Parser.prototype.parse;
+        window.ePub.Parser.prototype.parse = function(markup) {
+          try {
+            // 먼저 정규화된 HTML로 변환 시도
+            const normalized = normalizeHtml(markup);
+            return originalParse.call(this, normalized);
+          } catch (e) {
+            console.warn('정규화된 파싱 실패, 원본으로 재시도:', e);
+            return originalParse.call(this, markup);
+          }
+        };
+      }
+    }
+
     // Downloads 폴더 지정을 위한 파일 입력 처리
     fileInput.addEventListener("click", () => {
       // 모바일에서는 Downloads 폴더를 직접 지정할 수 없지만,
@@ -362,6 +418,25 @@
 
     lastPageBtn.addEventListener("click", gotoLastPage);
 
+    // 하이라이트 저장 함수
+    function saveHighlight(cfi, text) {
+      const key = "highlightList:" + currentFile;
+      const list = JSON.parse(localStorage.getItem(key) || "[]");
+      const existing = list.find(item => item.cfi === cfi);
+      if (!existing) {
+        list.push({ cfi, text, timestamp: Date.now() });
+        localStorage.setItem(key, JSON.stringify(list));
+      }
+    }
+
+    // 하이라이트 삭제 함수
+    function removeHighlight(cfi) {
+      const key = "highlightList:" + currentFile;
+      const list = JSON.parse(localStorage.getItem(key) || "[]");
+      const filtered = list.filter(item => item.cfi !== cfi);
+      localStorage.setItem(key, JSON.stringify(filtered));
+    }
+
     fileInput.addEventListener("change", () => {
       clearViewer();
       const file = fileInput.files[0];
@@ -374,7 +449,49 @@
       reader.onload = async (e) => {
         const buffer = e.target.result;
         if (ext === "epub") {
-          book = ePub(buffer);
+          // 자기닫기 태그 파싱 개선을 위한 패치 적용
+          patchEpubJsForSelfClosingTags();
+          
+          try {
+            // EPUB 파일을 ZIP으로 읽어서 HTML 파일들을 정규화
+            const zip = new JSZip();
+            const zipFile = await zip.loadAsync(buffer);
+            
+            // HTML/XHTML 파일들을 찾아서 정규화
+            const htmlFiles = [];
+            zipFile.forEach((relativePath, file) => {
+              if (relativePath.match(/\.(x?html?|xml)$/i) && !file.dir) {
+                htmlFiles.push(relativePath);
+              }
+            });
+            
+            // 각 HTML 파일의 내용을 정규화
+            for (const filePath of htmlFiles) {
+              const file = zipFile.file(filePath);
+              if (file) {
+                try {
+                  const content = await file.async("string");
+                  const normalized = normalizeHtml(content);
+                  zipFile.file(filePath, normalized);
+                } catch (e) {
+                  console.warn(`파일 ${filePath} 정규화 실패:`, e);
+                }
+              }
+            }
+            
+            // 수정된 ZIP을 새로운 버퍼로 생성
+            const modifiedBuffer = await zip.generateAsync({
+              type: "arraybuffer",
+              compression: "DEFLATE",
+              compressionOptions: { level: 6 }
+            });
+            
+            book = ePub(modifiedBuffer);
+          } catch (zipError) {
+            console.warn('ZIP 기반 정규화 실패, 원본 사용:', zipError);
+            book = ePub(buffer);
+          }
+          
           // 모바일에서는 항상 1면 보기, 스크롤 모드 없음
           rendition = book.renderTo("viewer", {
             width: "100%", height: "100%", 
@@ -389,6 +506,9 @@
               progressBar.style.opacity = "1";
               console.log("[EPUB] 진행바 사용 가능");
             });
+          }).catch(e => {
+            console.error("EPUB 로딩 실패:", e);
+            alert("EPUB 파일을 읽는 중 오류가 발생했습니다. 파일이 손상되었거나 지원되지 않는 형식일 수 있습니다.");
           });
 
           function applyThemeToView(view) {
@@ -436,7 +556,28 @@
             }
           }
 
-          rendition.on("rendered", (section, view) => { applyThemeToView(view); restoreHighlights(); });
+          // 텍스트 선택 시 하이라이트 추가
+          rendition.on("selected", (cfiRange, contents) => {
+            const selection = contents.window.getSelection();
+            const selectedText = selection.toString().trim();
+            if (selectedText.length > 0) {
+              const result = rendition.annotations.highlight(
+                cfiRange, {}, () => {}, "highlight",
+                { fill: "#ffff00", "fill-opacity": "0.4" }
+              );
+              if (result && result.cfiRange) {
+                currentHighlightIds.push(result.cfiRange);
+                saveHighlight(cfiRange, selectedText);
+              }
+            }
+            selection.removeAllRanges();
+          });
+
+          rendition.on("rendered", (section, view) => { 
+            applyThemeToView(view); 
+            restoreHighlights(); 
+          });
+          
           rendition.on("relocated", loc => {
             lastEPUBLocation = loc.start.cfi;
             const percent = book.locations.percentageFromCfi(loc.start.cfi) * 100;
@@ -466,6 +607,8 @@
             tocSelect.hidden = false;
             tocSelect.style.display = "inline-block";
             tocSelect.onchange = () => rendition.display(tocSelect.value);
+          }).catch(e => {
+            console.warn("목차 로딩 실패:", e);
           });
 
           prevBtn.onclick = () => rendition.prev();
@@ -506,11 +649,19 @@
       if (!book || !query) return;
       try {
         const results = await searchInEpub(book, query);
-        if (!results || results.length === 0) { searchResults.textContent = "검색 결과가 없습니다."; return; }
+        if (!results || results.length === 0) { 
+          searchResults.textContent = "검색 결과가 없습니다."; 
+          return; 
+        }
         results.forEach(({ cfi, preview }) => {
           const div = document.createElement("div");
           div.textContent = preview;
-          div.onclick = () => { rendition.display(cfi).then(() => { clearHighlights(); addHighlight(cfi); }); };
+          div.onclick = () => { 
+            rendition.display(cfi).then(() => { 
+              clearHighlights(); 
+              addHighlight(cfi); 
+            }); 
+          };
           searchResults.appendChild(div);
         });
       } catch (err) {
@@ -531,11 +682,15 @@
 
     function clearHighlights() {
       if (!rendition || !rendition.annotations) return;
-      try { currentHighlightIds.forEach(cfi => rendition.annotations.remove(cfi, "highlight")); } catch (e) {}
+      try { 
+        currentHighlightIds.forEach(cfi => rendition.annotations.remove(cfi, "highlight")); 
+      } catch (e) {}
       currentHighlightIds = [];
       try {
         const iframeDoc = viewer.querySelector("iframe")?.contentDocument;
-        if (iframeDoc) { iframeDoc.querySelectorAll("highlight").forEach(el => el.remove()); }
+        if (iframeDoc) { 
+          iframeDoc.querySelectorAll("highlight").forEach(el => el.remove()); 
+        }
       } catch (e) {}
     }
 
