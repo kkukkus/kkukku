@@ -51,7 +51,7 @@
         background:rgba(50, 50, 50, 1);
         color: white;
         border: 1px solid #dddddd;
-        font-size: 16px;
+        font-size: 15px;
         border-bottom-right-radius: 10px;
         border-bottom-left-radius: 10px;
       }
@@ -168,15 +168,24 @@
         dom.innerHTML += `<a href="${link}" class="link" onclick="ClickLink(this)">${link}</a>`;
       };
 
+      let isAutoMode = false;
+
       let AutoClickLinks = function() {
         const links = document.querySelectorAll('.link:not([checked])');
-        if (links.length > 0) {
+        if (links.length > 0 && isAutoMode) {
           links[0].click();
-          setTimeout(() => {
-            AutoClickLinks();
-          }, 5000);
         }
       }
+
+      // 페이지가 다시 활성화되면 다음 링크 자동 클릭 (반자동 방식)
+      document.addEventListener('visibilitychange', function() {
+        if (!document.hidden && isAutoMode) {
+          // 브라우저로 돌아왔을 때 자동으로 다음 링크
+          setTimeout(() => {
+            AutoClickLinks();
+          }, 500);
+        }
+      });
 
       let MakeLink = function() {
         let links = document.getElementById("links").value;
@@ -207,8 +216,9 @@
         
         document.getElementById('autoopen').addEventListener('click', () => {
           MakeLink();
+          isAutoMode = true; // 자동 모드 활성화
           setTimeout(() => {
-            AutoClickLinks();
+            AutoClickLinks(); // 첫 링크 실행
           }, 500);
         });
 
@@ -221,6 +231,7 @@
         });
 
         document.getElementById('close').addEventListener('click', () => {
+          isAutoMode = false; // 자동 모드 비활성화
           ToggleBase('input');
         });
       });
