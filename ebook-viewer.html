@@ -261,7 +261,6 @@
     progressBar.style.pointerEvents = "none";
     progressBar.style.opacity = "0";
 
-    // 자기닫기 태그 문제 해결을 위한 HTML 정규화 함수
     function normalizeHtml(htmlString) {
       // 자기닫기 태그들을 정상적인 열기/닫기 태그로 변환
       const selfClosingTags = [
@@ -275,22 +274,14 @@
         // <tag/> 형태를 <tag></tag>로 변환
         const selfClosingRegex = new RegExp(`<${tag}([^>]*?)\\s*\\/>`, 'gi');
         normalized = normalized.replace(selfClosingRegex, (match, attrs) => {
-          // void 요소들은 닫기 태그가 없어야 함
-          const voidElements = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
-          if (voidElements.includes(tag.toLowerCase())) {
-            return `<${tag}${attrs}></${tag}>`;
-          }
+          // 모든 태그를 명시적인 열기/닫기 쌍으로 변환
+          return `<${tag}${attrs}></${tag}>`;
         });
         
         // <tag 속성/> 형태도 처리
         const selfClosingWithSpaceRegex = new RegExp(`<${tag}([^>]*?)\\s+\\/>`, 'gi');
         normalized = normalized.replace(selfClosingWithSpaceRegex, (match, attrs) => {
-          const voidElements = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
-          if (voidElements.includes(tag.toLowerCase())) {
-            return `<${tag}${attrs}>`;
-          } else {
-            return `<${tag}${attrs}></${tag}>`;
-          }
+          return `<${tag}${attrs}></${tag}>`;
         });
       });
       
