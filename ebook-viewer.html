@@ -278,8 +278,6 @@
           // void 요소들은 닫기 태그가 없어야 함
           const voidElements = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
           if (voidElements.includes(tag.toLowerCase())) {
-            return `<${tag}${attrs}>`;
-          } else {
             return `<${tag}${attrs}></${tag}>`;
           }
         });
