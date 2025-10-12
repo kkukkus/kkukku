@@ -509,10 +509,23 @@
                 try {
                   const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                   
-                  // iframe 내부 휠 이벤트
+                  // iframe 내부 휠 이벤트 (딜레이 추가)
+                  let iframeWheelTimeout = null;
+                  let iframeLastWheelTime = 0;
+                  const wheelDelay = 800; // 0.8초 간격
+                  
                   iframeDoc.addEventListener('wheel', function(e) {
                     e.preventDefault();
+                    
+                    const now = Date.now();
+                    if (now - iframeLastWheelTime < wheelDelay) {
+                      console.log('휠 무시 (너무 빠름)');
+                      return;
+                    }
+                    
                     console.log('iframe 휠:', e.deltaY);
+                    iframeLastWheelTime = now;
+                    
                     if (e.deltaY > 5) {
                       rendition.next();
                     } else if (e.deltaY < -5) {
@@ -532,7 +545,7 @@
                   
                   iframeDoc.addEventListener('touchend', function(e) {
                     const now = Date.now();
-                    if (now - iframeLastActionTime < 300) return;
+                    if (now - iframeLastActionTime < 500) return;
                     
                     const touchEndX = e.changedTouches[0].clientX;
                     const touchEndY = e.changedTouches[0].clientY;
@@ -558,7 +571,7 @@
                     }
                   }, { passive: true });
                   
-                  console.log('iframe 이벤트 리스너 추가 완료');
+                  console.log('iframe 이벤트 리스너 추가 완료 (휠 딜레이: 0.8초)');
                 } catch (err) {
                   console.warn('iframe 접근 실패:', err);
                 }
