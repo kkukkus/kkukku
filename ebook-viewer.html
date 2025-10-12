@@ -504,6 +504,65 @@
               const iframe = viewer.querySelector("iframe");
               if (iframe && iframe.contentWindow) {
                 iframe.contentWindow.addEventListener("keydown", keydownHandler, false);
+                
+                // iframe 내부에도 휠/터치 이벤트 추가
+                try {
+                  const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                  
+                  // iframe 내부 휠 이벤트
+                  iframeDoc.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                    console.log('iframe 휠:', e.deltaY);
+                    if (e.deltaY > 5) {
+                      rendition.next();
+                    } else if (e.deltaY < -5) {
+                      rendition.prev();
+                    }
+                  }, { passive: false });
+                  
+                  // iframe 내부 터치 이벤트
+                  let iframeTouchStartX = 0;
+                  let iframeTouchStartY = 0;
+                  let iframeLastActionTime = 0;
+                  
+                  iframeDoc.addEventListener('touchstart', function(e) {
+                    iframeTouchStartX = e.touches[0].clientX;
+                    iframeTouchStartY = e.touches[0].clientY;
+                  }, { passive: true });
+                  
+                  iframeDoc.addEventListener('touchend', function(e) {
+                    const now = Date.now();
+                    if (now - iframeLastActionTime < 300) return;
+                    
+                    const touchEndX = e.changedTouches[0].clientX;
+                    const touchEndY = e.changedTouches[0].clientY;
+                    const deltaX = touchEndX - iframeTouchStartX;
+                    const deltaY = touchEndY - iframeTouchStartY;
+                    
+                    console.log('iframe 터치:', deltaX, deltaY);
+                    
+                    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
+                      if (deltaX > 0) {
+                        rendition.prev();
+                      } else {
+                        rendition.next();
+                      }
+                      iframeLastActionTime = now;
+                    } else if (Math.abs(deltaY) > 30) {
+                      if (deltaY > 0) {
+                        rendition.prev();
+                      } else {
+                        rendition.next();
+                      }
+                      iframeLastActionTime = now;
+                    }
+                  }, { passive: true });
+                  
+                  console.log('iframe 이벤트 리스너 추가 완료');
+                } catch (err) {
+                  console.warn('iframe 접근 실패:', err);
+                }
+                
                 iframe.contentWindow.focus();
               }
             }, 300);
