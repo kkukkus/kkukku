@@ -256,7 +256,7 @@
 
     let isLocationReady = false;
     let book = null, rendition = null, keydownHandler = null, pdfDoc = null;
-    let currentPage = 1, viewMode = 1, currentFile = "", lastEPUBLocation = "";
+    let currentPage = 1, currentFile = "", lastEPUBLocation = "";
     let currentHighlightIds = [];
 
     progressBar.style.pointerEvents = "none";
@@ -571,7 +571,7 @@
                     }
                   }, { passive: true });
                   
-                  console.log('iframe 이벤트 리스너 추가 완료 (휠 딜레이: 0.8초)');
+                  console.log('iframe 이벤트 리스너 추가 완료 (휠 간격: 0.8초, 터치 간격: 0.5초)');
                 } catch (err) {
                   console.warn('iframe 접근 실패:', err);
                 }
@@ -752,89 +752,6 @@
       if (rendition) try { rendition.destroy(); } catch {}
       if (keydownHandler) document.removeEventListener("keydown", keydownHandler);
     });
-
-    // === 페이지 넘기기 통합 시스템 ===
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let lastActionTime = 0;
-    const actionDelay = 300; // 0.3초 간격
-    
-    function goNext() {
-      const now = Date.now();
-      if (now - lastActionTime < actionDelay) return;
-      lastActionTime = now;
-      
-      console.log('다음 페이지');
-      if (nextBtn && nextBtn.onclick) {
-        nextBtn.onclick();
-      }
-    }
-    
-    function goPrev() {
-      const now = Date.now();
-      if (now - lastActionTime < actionDelay) return;
-      lastActionTime = now;
-      
-      console.log('이전 페이지');
-      if (prevBtn && prevBtn.onclick) {
-        prevBtn.onclick();
-      }
-    }
-    
-    // PC: 마우스 휠 - viewerContainer에 직접 적용
-    const viewerContainer = document.getElementById('viewerContainer');
-    
-    viewerContainer.addEventListener('wheel', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      console.log('휠 이벤트:', e.deltaY);
-      
-      if (e.deltaY > 5) {
-        goNext();
-      } else if (e.deltaY < -5) {
-        goPrev();
-      }
-    }, { passive: false });
-    
-    // 모바일: 터치 - viewerContainer에 직접 적용
-    viewerContainer.addEventListener('touchstart', function(e) {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-      console.log('터치 시작:', touchStartX, touchStartY);
-    }, { passive: true });
-    
-    viewerContainer.addEventListener('touchend', function(e) {
-      const touchEndX = e.changedTouches[0].clientX;
-      const touchEndY = e.changedTouches[0].clientY;
-      const deltaX = touchEndX - touchStartX;
-      const deltaY = touchEndY - touchStartY;
-      
-      console.log('터치 종료:', deltaX, deltaY);
-      
-      const threshold = 30; // 최소 이동 거리
-      
-      // 가로 움직임이 더 큰 경우
-      if (Math.abs(deltaX) > Math.abs(deltaY)) {
-        if (Math.abs(deltaX) > threshold) {
-          if (deltaX > 0) {
-            goPrev(); // 오른쪽으로 = 이전
-          } else {
-            goNext(); // 왼쪽으로 = 다음
-          }
-        }
-      } 
-      // 세로 움직임이 더 큰 경우
-      else {
-        if (Math.abs(deltaY) > threshold) {
-          if (deltaY > 0) {
-            goPrev(); // 아래로 = 이전
-          } else {
-            goNext(); // 위로 = 다음
-          }
-        }
-      }
-    }, { passive: true });
   </script>
 </body>
 </html>
