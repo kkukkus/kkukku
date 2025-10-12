@@ -28,11 +28,12 @@
       width: 100%; 
       height: 100%;
       border: 1px solid #ccc; 
-      overflow: auto; 
+      overflow: hidden; 
       position: relative;
       padding-left: 35px !important; 
       padding-right: 35px !important; 
       box-sizing: border-box !important;
+      touch-action: pan-y pan-x;
     }
     
     canvas { 
@@ -679,86 +680,82 @@
       if (keydownHandler) document.removeEventListener("keydown", keydownHandler);
     });
 
-    // 터치 제스처 추가 (가로 스와이프로 페이지 넘기기)
+    // === 페이지 넘기기 통합 시스템 ===
     let touchStartX = 0;
     let touchStartY = 0;
+    let lastActionTime = 0;
+    const actionDelay = 300; // 0.3초 간격
     
-    viewer.addEventListener('touchstart', e => {
+    function goNext() {
+      const now = Date.now();
+      if (now - lastActionTime < actionDelay) return;
+      lastActionTime = now;
+      
+      console.log('다음 페이지');
+      nextBtn.click();
+    }
+    
+    function goPrev() {
+      const now = Date.now();
+      if (now - lastActionTime < actionDelay) return;
+      lastActionTime = now;
+      
+      console.log('이전 페이지');
+      prevBtn.click();
+    }
+    
+    // PC: 마우스 휠 (가장 우선순위)
+    document.addEventListener('wheel', function(e) {
+      // viewer 영역 체크
+      if (!viewer.contains(e.target)) return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      
+      if (e.deltaY > 0) {
+        goNext();
+      } else if (e.deltaY < 0) {
+        goPrev();
+      }
+    }, { passive: false, capture: true });
+    
+    // 모바일: 터치 시작
+    document.addEventListener('touchstart', function(e) {
+      if (!viewer.contains(e.target)) return;
+      
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
     }, { passive: true });
     
-    viewer.addEventListener('touchend', e => {
+    // 모바일: 터치 종료
+    document.addEventListener('touchend', function(e) {
+      if (!viewer.contains(e.target)) return;
+      
       const touchEndX = e.changedTouches[0].clientX;
       const touchEndY = e.changedTouches[0].clientY;
       const deltaX = touchEndX - touchStartX;
       const deltaY = touchEndY - touchStartY;
       
-      // 가로 스와이프가 세로 스와이프보다 클 때만 페이지 넘기기
-      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
-        if (deltaX > 0) {
-          prevBtn.click();
-        } else {
-          nextBtn.click();
-        }
-      }
-    });
-
-    // PC: 마우스 휠 스크롤로 페이지 넘기기
-    let lastScrollTime = 0;
-    const scrollThrottle = 800; // 0.8초 간격
-    
-    viewer.addEventListener('wheel', e => {
-      const now = Date.now();
-      if (now - lastScrollTime < scrollThrottle) return;
+      const threshold = 30; // 최소 이동 거리
       
-      // 세로 스크롤만 감지
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        e.preventDefault();
-        
-        if (e.deltaY > 0) {
-          // 아래로 스크롤 = 다음 페이지
-          nextBtn.click();
-        } else {
-          // 위로 스크롤 = 이전 페이지
-          prevBtn.click();
-        }
-        
-        lastScrollTime = now;
-      }
-    }, { passive: false });
-    
-    // 모바일: 터치 세로 스크롤로 페이지 넘기기
-    let scrollStartY = 0;
-    let isScrolling = false;
-    
-    viewer.addEventListener('touchstart', e => {
-      if (e.touches.length === 1) {
-        scrollStartY = e.touches[0].clientY;
-        isScrolling = false;
-      }
-    }, { passive: true });
-    
-    viewer.addEventListener('touchmove', e => {
-      if (e.touches.length === 1 && !isScrolling) {
-        const deltaY = e.touches[0].clientY - scrollStartY;
-        
-        // 세로 스크롤 감지 (최소 30px 이동)
-        if (Math.abs(deltaY) > 30) {
-          const now = Date.now();
-          if (now - lastScrollTime < scrollThrottle) return;
-          
-          isScrolling = true;
-          
-          if (deltaY < 0) {
-            // 위로 스크롤 = 다음 페이지
-            nextBtn.click();
+      // 가로 움직임이 더 큰 경우
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (Math.abs(deltaX) > threshold) {
+          if (deltaX > 0) {
+            goPrev(); // 오른쪽으로 = 이전
           } else {
-            // 아래로 스크롤 = 이전 페이지
-            prevBtn.click();
+            goNext(); // 왼쪽으로 = 다음
           }
-          
-          lastScrollTime = now;
+        }
+      } 
+      // 세로 움직임이 더 큰 경우
+      else {
+        if (Math.abs(deltaY) > threshold) {
+          if (deltaY > 0) {
+            goPrev(); // 아래로 = 이전
+          } else {
+            goNext(); // 위로 = 다음
+          }
         }
       }
     }, { passive: true });
