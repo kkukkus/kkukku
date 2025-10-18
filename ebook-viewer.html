@@ -262,16 +262,7 @@
     progressBar.style.pointerEvents = "none";
     progressBar.style.opacity = "0";
 
-    function normalizeHtml(htmlString) {
-      const selfClosingTags = [
-        'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
-        'link', 'meta', 'param', 'source', 'track', 'wbr', 'title'
-      ];
-      
-      let normalized = htmlString;
-      
-      selfClosingTags.forEach(tag => {
-        const selfClosingRegex = new RegExp(`<${tag}([^>]*?)\\s*\\/>`, 'gi');
+    function normalizeHtml(htmlString) { return htmlString; }([^>]*?)\\s*\\/>`, 'gi');
         normalized = normalized.replace(selfClosingRegex, (match, attrs) => {
           return `<${tag}${attrs}></${tag}>`;
         });
@@ -285,14 +276,7 @@
       return normalized;
     }
 
-    function patchEpubJsForSelfClosingTags() {
-      if (window.ePub && window.ePub.Parser) {
-        const originalParse = window.ePub.Parser.prototype.parse;
-        window.ePub.Parser.prototype.parse = function(markup) {
-          try {
-            const normalized = normalizeHtml(markup);
-            return originalParse.call(this, normalized);
-          } catch (e) {
+    function patchEpubJsForSelfClosingTags() { /* no-op: do not mutate parser */ } catch (e) {
             console.warn('정규화된 파싱 실패, 원본으로 재시도:', e);
             return originalParse.call(this, markup);
           }
@@ -442,8 +426,7 @@
               if (file) {
                 try {
                   const content = await file.async("string");
-                  const normalized = normalizeHtml(content);
-                  zipFile.file(filePath, normalized);
+                  zipFile.file(filePath, content);
                 } catch (e) {
                   console.warn(`파일 ${filePath} 정규화 실패:`, e);
                 }
