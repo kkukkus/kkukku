@@ -432,7 +432,7 @@
             
             const htmlFiles = [];
             zipFile.forEach((relativePath, file) => {
-              if (relativePath.match(/\.(x?html?|x?htm?|xml)$/i) && !file.dir) {
+              if (relativePath.match(/\.(xhtml|xhtm|html|htm|xml)$/i) && !file.dir) {
                 htmlFiles.push(relativePath);
               }
             });
