@@ -190,6 +190,11 @@
       let MakeLink = function() {
         let links = document.getElementById("links").value;
         let resultDom = AddDom();
+		        
+        // 첫 줄에 무조건 naverbooks://my 추가
+        SetResult(resultDom, 'naverbooks://my');
+        
+        // 입력받은 링크 처리
         for (let line of links.split('\n')) {
           if ('' === line.trim()) continue;
           if (!line.trim().startsWith('naverbooks://')) continue;
